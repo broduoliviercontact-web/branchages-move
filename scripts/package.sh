@@ -52,7 +52,7 @@ mkdir -p "${STAGE_DIR}"
 
 cp "${MODULE_MANIFEST}" "${STAGE_DIR}/module.json"
 cp "${DSP_SOURCE}" "${STAGE_DIR}/dsp.so"
-cp "${UI_SOURCE}" "${STAGE_DIR}/branchage_ui.js"
+cp "${UI_SOURCE}" "${STAGE_DIR}/ui.js"
 
 tar -C "${DIST_DIR}" -czf "${ARCHIVE_PATH}" "${MODULE_ID}"
 

@@ -11,12 +11,11 @@ const CC_JOG_WHEEL = 14;
 const CC_JOG_CLICK = 3;
 
 const PAGE_MAIN = 0;
-const PAGE_GRID = 1;
-const PAGE_BRANCH = 2;
+const PAGE_PARAMS = 1;
 const GRID_VIEW_STEPS = 16;
 const FLASH_TICKS = 5;
 
-const PAGE_LABELS = ['MAIN', 'GRID', 'BRCH'];
+const PAGE_LABELS = ['MAIN', 'PRMS'];
 const BRANCH_LABELS = ['K', 'S', 'H'];
 
 const BRANCH_PROB_KEYS = [
@@ -46,46 +45,31 @@ const MAIN_KNOB_PARAMS = {
   76: 'randomness',
 };
 
-const BRANCH_KNOB_PARAMS = {
-  71: 'kick_branch_prob',
-  72: 'snare_branch_prob',
-  73: 'hat_branch_prob',
-  74: 'kick_branch_note',
-  75: 'snare_branch_note',
-  76: 'hat_branch_note',
+const PARAMS_KNOB_PARAMS = {
+  71: 'steps',
+  72: 'bpm',
+  73: 'sync',
+  74: 'kick_branch_prob',
+  75: 'snare_branch_prob',
+  76: 'hat_branch_prob',
 };
 
-const TRACK_FOCUS_MAIN = {
-  40: 'density_kick',
-  41: 'density_snare',
-  42: 'density_hat',
-  43: 'randomness',
-};
+const MAIN_PARAM_LIST = [
+  'map_x', 'map_y',
+  'density_kick', 'density_snare', 'density_hat',
+  'randomness',
+  'kick_note', 'snare_note', 'hat_note',
+];
 
-const TRACK_FOCUS_BRANCH = {
-  40: 'kick_branch_prob',
-  41: 'snare_branch_prob',
-  42: 'hat_branch_prob',
-  43: 'grid_view',
-};
-
-const STEP_FOCUS_MAIN = {
-  16: 'kick_note',
-  17: 'snare_note',
-  18: 'hat_note',
-};
-
-const STEP_FOCUS_BRANCH = {
-  16: 'kick_branch_note',
-  17: 'snare_branch_note',
-  18: 'hat_branch_note',
-  20: 'kick_branch_rand_low',
-  21: 'kick_branch_rand_high',
-  22: 'snare_branch_rand_low',
-  23: 'snare_branch_rand_high',
-  24: 'hat_branch_rand_low',
-  25: 'hat_branch_rand_high',
-};
+const PARAMS_PARAM_LIST = [
+  'steps', 'bpm', 'sync',
+  'kick_branch_prob',   'kick_branch_note',   'kick_branch_enabled',
+  'snare_branch_prob',  'snare_branch_note',  'snare_branch_enabled',
+  'hat_branch_prob',    'hat_branch_note',    'hat_branch_enabled',
+  'kick_branch_rand_low',  'kick_branch_rand_high',
+  'snare_branch_rand_low', 'snare_branch_rand_high',
+  'hat_branch_rand_low',   'hat_branch_rand_high',
+];
 
 const PARAM_DEFAULTS = {
   map_x: 0.5,
@@ -95,6 +79,8 @@ const PARAM_DEFAULTS = {
   density_hat: 0.5,
   randomness: 0.0,
   steps: 16,
+  bpm: 120,
+  sync: 0,
   kick_note: 36,
   snare_note: 38,
   hat_note: 42,
@@ -165,6 +151,7 @@ const g = {
   previewGrid: [new Uint8Array(32), new Uint8Array(32), new Uint8Array(32)],
   previewRev: -1,
   focused: null,
+  editing: false,
   padLEDCache: new Uint8Array(32),
   padDirty: true,
   padDirtyPhase: 0,
@@ -177,7 +164,7 @@ function clamp01(v) {
 function clampPage(v) {
   const page = Math.round(v);
   if (page < PAGE_MAIN) return PAGE_MAIN;
-  if (page > PAGE_BRANCH) return PAGE_BRANCH;
+  if (page > PAGE_PARAMS) return PAGE_PARAMS;
   return page;
 }
 
@@ -224,16 +211,6 @@ function isToggleParam(key) {
   return TOGGLE_PARAMS[key] === true;
 }
 
-function branchLaneFromKey(key) {
-  for (let lane = 0; lane < 3; lane++) {
-    if (BRANCH_PROB_KEYS[lane] === key) return lane;
-    if (BRANCH_NOTE_KEYS[lane] === key) return lane;
-    if (BRANCH_ENABLED_KEYS[lane] === key) return lane;
-    if (BRANCH_RAND_LOW_KEYS[lane] === key) return lane;
-    if (BRANCH_RAND_HIGH_KEYS[lane] === key) return lane;
-  }
-  return -1;
-}
 
 function clampParam(key, value) {
   if (BRANCH_NOTE_PARAMS[key]) return clampBranchNote(value);
@@ -246,25 +223,35 @@ function clampParam(key, value) {
     if (steps > 32) return 32;
     return steps;
   }
+  if (key === 'bpm') {
+    const bpm = Math.round(value);
+    if (bpm < 40) return 40;
+    if (bpm > 240) return 240;
+    return bpm;
+  }
+  if (key === 'sync') return value > 0 ? 1 : 0;
   return clamp01(value);
 }
 
 function formatParamValue(key, value) {
-  if (isNoteParam(key) || BRANCH_NOTE_PARAMS[key] || key === 'grid_view' || isToggleParam(key) || key === 'steps') {
+  if (isNoteParam(key) || BRANCH_NOTE_PARAMS[key] || key === 'grid_view' || isToggleParam(key) || key === 'steps' || key === 'bpm') {
     return String(Math.round(value));
   }
+  if (key === 'sync') return value > 0 ? 'internal' : 'move';
   return value.toFixed(4);
 }
 
 function paramDelta(key, delta) {
   if (isNoteParam(key) || BRANCH_NOTE_PARAMS[key]) return delta;
-  if (key === 'grid_view' || isToggleParam(key)) return delta > 0 ? 1 : -1;
+  if (key === 'grid_view' || isToggleParam(key) || key === 'sync') return delta > 0 ? 1 : -1;
+  if (key === 'steps' || key === 'bpm') return delta > 0 ? 1 : -1;
   return delta * 0.005;
 }
 
 function knobDelta(key, delta) {
   if (isNoteParam(key) || BRANCH_NOTE_PARAMS[key]) return delta;
-  if (key === 'grid_view' || isToggleParam(key)) return delta > 0 ? 1 : -1;
+  if (key === 'grid_view' || isToggleParam(key) || key === 'sync') return delta > 0 ? 1 : -1;
+  if (key === 'steps' || key === 'bpm') return delta > 0 ? 1 : -1;
   return delta * 0.01;
 }
 
@@ -305,10 +292,33 @@ function setParam(key, value) {
   host_module_set_param(key, formatParamValue(key, next));
 }
 
-function cyclePage(delta = 1) {
-  const next = (clampPage(g.params.grid_view) + delta + 3) % 3;
+function cyclePage(delta = 1, resetFocus = true) {
+  const next = (clampPage(g.params.grid_view) + delta + 2) % 2;
   setParam('grid_view', next);
-  g.focused = 'grid_view';
+  if (resetFocus) { g.focused = null; g.editing = false; }
+  else { g.editing = false; }
+}
+
+function currentParamList() {
+  return clampPage(g.params.grid_view) === PAGE_PARAMS ? PARAMS_PARAM_LIST : MAIN_PARAM_LIST;
+}
+
+function moveCursor(delta) {
+  const list = currentParamList();
+  const idx = list.indexOf(g.focused);
+  const raw = idx < 0 ? 0 : idx + delta;
+  if (raw < 0) {
+    // début de liste → page précédente, dernier param
+    cyclePage(-1, false);
+    const newList = currentParamList();
+    g.focused = newList[newList.length - 1];
+  } else if (raw >= list.length) {
+    // fin de liste → page suivante, premier param
+    cyclePage(1, false);
+    g.focused = currentParamList()[0];
+  } else {
+    g.focused = list[raw];
+  }
 }
 
 function drawBar(bx, by, bw, bh, value) {
@@ -357,47 +367,11 @@ function renderMainPage() {
   const syncWarn = host_module_get_param('sync_warn') || '';
   if (syncWarn.length > 0) {
     print(0, 54, `!${syncWarn}`, 1);
+  } else if (g.focused) {
+    print(0, 54, `> ${g.focused}`, 1);
   } else {
     print(0, 54, `PAGE ${pageName()}`, 1);
   }
-}
-
-function renderGridPage() {
-  const stepNum = String(g.step + 1).padStart(2, '0');
-  const visibleStep = g.step % GRID_VIEW_STEPS;
-  const laneY = [1, 19, 37];
-
-  print(0, 0, 'K', 1);
-  print(0, 18, 'S', 1);
-  print(0, 36, 'H', 1);
-  print(110, 0, stepNum, 1);
-  fill_rect(0, 14, 128, 1, 1);
-
-  for (let s = 0; s < GRID_VIEW_STEPS; s++) {
-    const sx = s * 8;
-    const current = s === visibleStep;
-
-    if (s > 0 && s % 4 === 0) fill_rect(sx - 1, 1, 1, 48, 1);
-
-    for (let lane = 0; lane < 3; lane++) {
-      const ry = laneY[lane];
-      const cell = g.previewGrid[lane][s];
-
-      if (current) {
-        fill_rect(sx, ry, 5, 12, 1);
-        if (cell === 0) fill_rect(sx + 1, ry + 4, 1, 4, 0);
-        if (cell === 1) fill_rect(sx, ry + 2, 5, 8, 0);
-      } else if (cell === 2) {
-        fill_rect(sx, ry + 1, 5, 10, 1);
-      } else if (cell === 1) {
-        fill_rect(sx, ry + 3, 5, 6, 1);
-      } else {
-        set_pixel(sx + 1, ry + 5, 1);
-      }
-    }
-  }
-
-  print(0, 54, '[19] PAGE', 1);
 }
 
 function randLaneFromFocused() {
@@ -408,54 +382,57 @@ function randLaneFromFocused() {
   return -1;
 }
 
-function renderBranchPage() {
+function renderParamsPage() {
   const p = g.params;
+
+  // Header: timing params
+  const syncStr = p.sync > 0 ? 'INT' : 'MOV';
+  const focSteps = g.focused === 'steps' ? '>' : ' ';
+  const focBpm   = g.focused === 'bpm'   ? '>' : ' ';
+  const focSync  = g.focused === 'sync'  ? '>' : ' ';
+  print(0, 0, `ST${focSteps}${p.steps} BPM${focBpm}${p.bpm} ${focSync}${syncStr}`, 1);
+
+  // Branch lanes
   const rows = [10, 24, 38];
-
-  print(0, 0, 'PER-LANE BRANCH', 1);
-  print(104, 0, pageName(), 1);
-
   const focusedRandLane = randLaneFromFocused();
 
   for (let lane = 0; lane < 3; lane++) {
-    const probKey = BRANCH_PROB_KEYS[lane];
-    const noteKey = BRANCH_NOTE_KEYS[lane];
+    const probKey    = BRANCH_PROB_KEYS[lane];
+    const noteKey    = BRANCH_NOTE_KEYS[lane];
     const enabledKey = BRANCH_ENABLED_KEYS[lane];
-    const dot = g.branchFlash[lane] > 0 ? '*' : '.';
-    const isRandFocused = focusedRandLane === lane;
-    const focused = isRandFocused || g.focused === probKey || g.focused === noteKey || g.focused === enabledKey ? '>' : ' ';
-    const y = rows[lane];
+    const dot        = g.branchFlash[lane] > 0 ? '*' : '.';
+    const isRandFoc  = focusedRandLane === lane;
+    const foc        = isRandFoc || g.focused === probKey || g.focused === noteKey || g.focused === enabledKey ? '>' : ' ';
+    const y          = rows[lane];
+    const noteVal    = p[noteKey];
+    const noteStr    = noteVal === -1 ? 'RND' : String(noteVal).padStart(3, ' ');
 
-    const noteVal = p[noteKey];
-    const noteStr = noteVal === -1 ? 'RND' : String(noteVal).padStart(3, ' ');
-
-    print(0, y, `${BRANCH_LABELS[lane]}${dot}${focused}`, 1);
+    print(0, y, `${BRANCH_LABELS[lane]}${dot}${foc}`, 1);
     drawBar(20, y + 1, 58, 5, p[probKey]);
     print(86, y, noteStr, 1);
     print(108, y, p[enabledKey] ? 'ON' : 'OF', 1);
   }
 
+  // Footer
   if (focusedRandLane >= 0) {
-    const lo = p[BRANCH_RAND_LOW_KEYS[focusedRandLane]];
-    const hi = p[BRANCH_RAND_HIGH_KEYS[focusedRandLane]];
-    const lbl = BRANCH_LABELS[focusedRandLane];
+    const lo    = p[BRANCH_RAND_LOW_KEYS[focusedRandLane]];
+    const hi    = p[BRANCH_RAND_HIGH_KEYS[focusedRandLane]];
+    const lbl   = BRANCH_LABELS[focusedRandLane];
     const focLo = g.focused === BRANCH_RAND_LOW_KEYS[focusedRandLane] ? '>' : ' ';
     const focHi = g.focused === BRANCH_RAND_HIGH_KEYS[focusedRandLane] ? '>' : ' ';
     print(0, 54, `${lbl}RND ${focLo}${lo}-${focHi}${hi}`, 1);
-  } else if (BRANCH_NOTE_KEYS.some(k => p[k] === -1)) {
-    print(0, 54, 'STP[20-25]=range', 1);
+  } else if (g.focused) {
+    print(0, 54, `> ${g.focused}`, 1);
   } else {
-    print(0, 54, 'CLK=tgl [19]=pg', 1);
+    print(0, 54, 'PAGE PRMS', 1);
   }
 }
 
 function render() {
   clear_screen();
   const page = clampPage(g.params.grid_view);
-  if (page === PAGE_GRID) {
-    renderGridPage();
-  } else if (page === PAGE_BRANCH) {
-    renderBranchPage();
+  if (page === PAGE_PARAMS) {
+    renderParamsPage();
   } else {
     renderMainPage();
   }
@@ -478,22 +455,17 @@ function updatePadSlice() {
   if (g.padDirtyPhase === 0) g.padDirty = false;
 }
 
-function focusFromTrack(cc) {
-  const page = clampPage(g.params.grid_view);
-  if (page === PAGE_BRANCH) return TRACK_FOCUS_BRANCH[cc] || null;
-  return TRACK_FOCUS_MAIN[cc] || null;
-}
 
-function focusFromStep(note) {
-  const page = clampPage(g.params.grid_view);
-  if (page === PAGE_BRANCH) return STEP_FOCUS_BRANCH[note] || null;
-  return STEP_FOCUS_MAIN[note] || null;
-}
 
 globalThis.init = function () {
   for (const key of Object.keys(PARAM_DEFAULTS)) {
     const raw = host_module_get_param(key);
-    if (raw !== undefined && raw !== null) g.params[key] = parseFloat(raw);
+    if (raw === undefined || raw === null) continue;
+    if (key === 'sync') {
+      g.params[key] = raw === 'internal' ? 1 : 0;
+    } else {
+      g.params[key] = parseFloat(raw);
+    }
   }
   refreshPreview(true);
   refreshPlayhead();
@@ -515,7 +487,8 @@ globalThis.tick = function () {
 
 globalThis.onMidiMessageInternal = function (data) {
   if (!data || data.length < 3) return;
-  if (data[1] < 10) return; // ignore knob capacitive touch notes
+  // ignorer seulement les notes capacitives (note-on, notes 0-9), pas les CC
+  if (data[0] === 0x90 && data[1] < 10) return;
 
   const status = data[0];
   const b1 = data[1];
@@ -524,62 +497,53 @@ globalThis.onMidiMessageInternal = function (data) {
   const page = clampPage(g.params.grid_view);
 
   if (type === 0xB0) {
-    const knobMap = page === PAGE_BRANCH ? BRANCH_KNOB_PARAMS : MAIN_KNOB_PARAMS;
+    const knobMap = page === PAGE_PARAMS ? PARAMS_KNOB_PARAMS : MAIN_KNOB_PARAMS;
     const key = knobMap[b1];
 
+    // Knob direct control — focuses the param, stays in edit mode
     if (key) {
       const delta = decodeDelta(b2);
       setParam(key, g.params[key] + knobDelta(key, delta));
       g.focused = key;
+      g.editing = true;
       if (key === 'map_x' || key === 'map_y') g.padDirty = true;
       return;
     }
 
-    if (b1 >= 40 && b1 <= 43 && b2 > 0) {
-      g.focused = focusFromTrack(b1);
+    // Jog wheel: navigation ou changement de valeur si editing
+    if (b1 === CC_JOG_WHEEL) {
+      const d = decodeDelta(b2);
+      if (g.editing && g.focused) {
+        setParam(g.focused, g.params[g.focused] + paramDelta(g.focused, d));
+        if (g.focused === 'map_x' || g.focused === 'map_y') g.padDirty = true;
+      } else {
+        moveCursor(d > 0 ? 1 : -1);
+      }
       return;
     }
 
-    if (b1 === CC_JOG_WHEEL && g.focused) {
-      if (g.focused === 'grid_view') {
-        cyclePage(decodeDelta(b2) > 0 ? 1 : -1);
-        return;
+    // Jog click: focus premier param si vide, sinon bascule mode edit
+    if (b1 === CC_JOG_CLICK && b2 > 0) {
+      if (!g.focused) {
+        g.focused = currentParamList()[0];
+        g.editing = false;
+      } else {
+        g.editing = !g.editing;
       }
-      setParam(g.focused, g.params[g.focused] + paramDelta(g.focused, decodeDelta(b2)));
-      if (g.focused === 'map_x' || g.focused === 'map_y') g.padDirty = true;
       return;
-    }
-
-    if (b1 === CC_JOG_CLICK && b2 > 0 && g.focused) {
-      const branchLane = branchLaneFromKey(g.focused);
-      if (g.focused === 'grid_view') {
-        cyclePage(1);
-        return;
-      }
-      if (branchLane >= 0) {
-        const enabledKey = BRANCH_ENABLED_KEYS[branchLane];
-        setParam(enabledKey, g.params[enabledKey] ? 0 : 1);
-        return;
-      }
-      setParam(g.focused, PARAM_DEFAULTS[g.focused]);
-      if (g.focused === 'map_x' || g.focused === 'map_y') g.padDirty = true;
     }
     return;
   }
 
   if (type === 0x90 && b2 > 0) {
+    // Step 4 (note 19): change page
     if (b1 === STEP_BASE + 3) {
       cyclePage(1);
       return;
     }
 
-    const stepFocus = focusFromStep(b1);
-    if (stepFocus) {
-      g.focused = stepFocus;
-      return;
-    }
-
-    if (page !== PAGE_BRANCH && b1 >= PAD_BASE && b1 < PAD_BASE + 32) {
+    // Pads: set map position (page MAIN only)
+    if (page === PAGE_MAIN && b1 >= PAD_BASE && b1 < PAD_BASE + 32) {
       const idx = b1 - PAD_BASE;
       const { x, y } = padIndexToXY(idx);
       setParam('map_x', x);
