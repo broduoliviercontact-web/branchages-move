@@ -7,6 +7,40 @@ Per-lane branching drum sequencer for Schwung on Ableton Move.
 - `Grids` drives the drum rhythm
 - each lane can probabilistically switch to its own alternate note, in the spirit of `Branches`
 
+## How it works
+
+```
+            ┌───────────────┐
+            │    GRIDS      │
+            │  (rhythm map) │
+            └──────┬────────┘
+                   │
+     ┌─────────────┼─────────────┐
+     │             │             │
+     ▼             ▼             ▼
+  KICK          SNARE          HAT
+   lane          lane          lane
+     │             │             │
+     ▼             ▼             ▼
+ ┌────────┐   ┌────────┐   ┌────────┐
+ │BRANCHES│   │BRANCHES│   │BRANCHES│
+ │  prob  │   │  prob  │   │  prob  │
+ └────┬───┘   └────┬───┘   └────┬───┘
+      │            │            │
+      ▼            ▼            ▼
+  note A/B     note A/B     note A/B
+  or RANDOM    or RANDOM    or RANDOM
+```
+
+1. **GRIDS** creates the rhythm skeleton (kick / snare / hat)
+2. Each lane goes through a **branch** gate
+3. Each trigger can:
+   - stay the same note
+   - switch to an alternate note
+   - become a random note from a per-lane range
+
+→ Result: evolving drum patterns with controlled randomness
+
 ## Features
 
 - Grids-style topographic drum pattern generation
