@@ -3,6 +3,6 @@
     "name": "Branchage",
     "description": "Grids drum maps with per-lane Branches-style note branching",
     "component_type": "midi_fx",
-    "latest_version": "0.3.0",
-    "download_url": "https://github.com/broduoliviercontact-web/Schwung-Midi-Fx-branchages-Multi-Random-generator/releases/download/v0.3.0/branchage-module.tar.gz"
+    "latest_version": "0.3.1",
+    "download_url": "https://github.com/broduoliviercontact-web/Schwung-Midi-Fx-branchages-Multi-Random-generator/releases/download/v0.3.1/branchage-module.tar.gz"
 }
