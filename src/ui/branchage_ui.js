@@ -402,15 +402,17 @@ function renderParamsPage() {
     const enabledKey = BRANCH_ENABLED_KEYS[lane];
     const dot        = g.branchFlash[lane] > 0 ? '*' : '.';
     const isRandFoc  = focusedRandLane === lane;
-    const foc        = isRandFoc || g.focused === probKey || g.focused === noteKey || g.focused === enabledKey ? '>' : ' ';
+    const focLane    = isRandFoc || g.focused === probKey ? '>' : ' ';
+    const focNote    = g.focused === noteKey ? '>' : ' ';
+    const focEnabled = g.focused === enabledKey ? '>' : ' ';
     const y          = rows[lane];
     const noteVal    = p[noteKey];
     const noteStr    = noteVal === -1 ? 'RND' : String(noteVal).padStart(3, ' ');
 
-    print(0, y, `${BRANCH_LABELS[lane]}${dot}${foc}`, 1);
+    print(0, y, `${BRANCH_LABELS[lane]}${dot}${focLane}`, 1);
     drawBar(20, y + 1, 58, 5, p[probKey]);
-    print(86, y, noteStr, 1);
-    print(108, y, p[enabledKey] ? 'ON' : 'OF', 1);
+    print(82, y, `${focNote}${noteStr}`, 1);
+    print(106, y, `${focEnabled}${p[enabledKey] ? 'ON' : 'OF'}`, 1);
   }
 
   // Footer
