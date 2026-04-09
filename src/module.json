@@ -2,63 +2,18 @@
     "id": "branchage",
     "name": "Branchage",
     "abbrev": "BRNC",
-    "version": "0.3.2",
+    "version": "0.3.3",
     "description": "Grids drum maps with per-lane Branches-style note branching",
     "author": "Mutable Instruments ideas / port for Schwung Move",
     "api_version": 2,
     "dsp": "dsp.so",
     "ui": "ui.js",
+    "raw_ui": true,
     "capabilities": {
         "midi_in": true,
         "midi_out": true,
         "chainable": true,
         "component_type": "midi_fx"
-    },
-    "ui_hierarchy": {
-        "levels": {
-            "root": {
-                "name": "Branchage",
-                "knobs": [
-                    "map_x",
-                    "map_y",
-                    "density_kick",
-                    "density_snare",
-                    "density_hat",
-                    "randomness",
-                    "steps",
-                    "bpm"
-                ],
-                "params": [
-                    "map_x",
-                    "map_y",
-                    "density_kick",
-                    "density_snare",
-                    "density_hat",
-                    "randomness",
-                    "steps",
-                    "kick_note",
-                    "snare_note",
-                    "hat_note",
-                    "kick_branch_enabled",
-                    "kick_branch_prob",
-                    "kick_branch_note",
-                    "snare_branch_enabled",
-                    "snare_branch_prob",
-                    "snare_branch_note",
-                    "hat_branch_enabled",
-                    "hat_branch_prob",
-                    "hat_branch_note",
-                    "kick_branch_rand_low",
-                    "kick_branch_rand_high",
-                    "snare_branch_rand_low",
-                    "snare_branch_rand_high",
-                    "hat_branch_rand_low",
-                    "hat_branch_rand_high",
-                    "sync",
-                    "bpm"
-                ]
-            }
-        }
     },
     "chain_params": [
         { "key": "map_x", "name": "Map X", "type": "float", "min": 0.0, "max": 1.0, "default": 0.5, "step": 0.01 },
