@@ -37,6 +37,7 @@ jobs:
           set -euo pipefail
 
           VERSION="${TAG_NAME#v}"
+          DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${TAG_NAME}/branchage-module.tar.gz"
 
           git fetch origin main
           git switch main || git switch --create main --track origin/main
@@ -44,8 +45,12 @@ jobs:
 
           cat > release.json <<EOF
           {
-            "version": "${VERSION}",
-            "download_url": "https://github.com/${REPO}/releases/download/${TAG_NAME}/branchage-module.tar.gz"
+              "id": "branchage",
+              "name": "Branchage",
+              "description": "Grids drum maps with per-lane Branches-style note branching",
+              "component_type": "midi_fx",
+              "latest_version": "${VERSION}",
+              "download_url": "${DOWNLOAD_URL}"
           }
           EOF
 
