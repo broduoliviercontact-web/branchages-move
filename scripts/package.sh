@@ -55,12 +55,18 @@ rm -rf "${STAGE_DIR}" "${ARCHIVE_PATH}"
 mkdir -p "${STAGE_DIR}"
 
 cp "${MODULE_MANIFEST}" "${STAGE_DIR}/module.json"
-cp "${DSP_SOURCE}" "${STAGE_DIR}/dsp.so"
 cp "${UI_SOURCE}" "${STAGE_DIR}/ui.js"
+# Use dd to strip macOS sparse-file metadata from dsp.so (prevents GNUSparseFile.0/ on Linux)
+dd if="${DSP_SOURCE}" of="${STAGE_DIR}/dsp.so" bs=1 2>/dev/null
 
 find "${STAGE_DIR}" \( -name '.DS_Store' -o -name '._*' \) -delete
 
-tar --exclude='.DS_Store' --exclude='._*' -C "${DIST_DIR}" -czf "${ARCHIVE_PATH}" "${MODULE_ID}"
+# Use GNU tar if available (no sparse handling), else bsdtar with --no-xattrs
+if command -v gtar &>/dev/null; then
+    gtar -C "${DIST_DIR}" -czf "${ARCHIVE_PATH}" "${MODULE_ID}"
+else
+    tar --no-xattrs -C "${DIST_DIR}" -czf "${ARCHIVE_PATH}" "${MODULE_ID}"
+fi
 
 echo "✓ Packaged ${MODULE_ID} v${MODULE_VERSION}"
 echo "  Stage dir: ${STAGE_DIR}"
