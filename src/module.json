@@ -2,7 +2,7 @@
     "id": "branchage",
     "name": "Branchage",
     "abbrev": "BRNC",
-    "version": "0.3.4",
+    "version": "0.3.5",
     "description": "Grids drum maps with per-lane Branches-style note branching",
     "author": "Mutable Instruments ideas / port for Schwung Move",
     "api_version": 2,
@@ -13,16 +13,7 @@
         "midi_in": true,
         "midi_out": true,
         "chainable": true,
-        "component_type": "midi_fx",
-        "ui_hierarchy": {
-            "levels": {
-                "root": {
-                    "name": "Branchage",
-                    "params": ["map_x", "map_y", "density_kick", "density_snare", "density_hat", "randomness"],
-                    "knobs": ["map_x", "map_y", "density_kick", "density_snare", "density_hat", "randomness"]
-                }
-            }
-        }
+        "component_type": "midi_fx"
     },
     "chain_params": [
         { "key": "map_x", "name": "Map X", "type": "float", "min": 0.0, "max": 1.0, "default": 0.5, "step": 0.01 },
