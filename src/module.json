@@ -8,6 +8,7 @@
     "api_version": 2,
     "dsp": "dsp.so",
     "ui": "ui.js",
+    "ui_chain": "ui_chain.js",
     "raw_ui": true,
     "capabilities": {
         "midi_in": true,

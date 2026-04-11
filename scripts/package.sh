@@ -56,6 +56,10 @@ mkdir -p "${STAGE_DIR}"
 
 cp "${MODULE_MANIFEST}" "${STAGE_DIR}/module.json"
 cp "${UI_SOURCE}" "${STAGE_DIR}/ui.js"
+UI_CHAIN_SOURCE="src/ui/ui_chain.js"
+if [ -f "${UI_CHAIN_SOURCE}" ]; then
+  cp "${UI_CHAIN_SOURCE}" "${STAGE_DIR}/ui_chain.js"
+fi
 # Use dd to strip macOS sparse-file metadata from dsp.so (prevents GNUSparseFile.0/ on Linux)
 dd if="${DSP_SOURCE}" of="${STAGE_DIR}/dsp.so" bs=1 2>/dev/null
 
