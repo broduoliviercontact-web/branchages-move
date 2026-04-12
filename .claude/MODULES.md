@@ -1236,6 +1236,11 @@ typedef struct midi_fx_api_v1 {
 midi_fx_api_v1_t* move_midi_fx_init(const host_api_v1_t *host);
 ```
 
+> **No save_state/load_state:** The API has no state serialization callbacks. The host will never call them. State recall goes through `set_param`/`get_param` — the chain host calls `set_param` on load to restore each parameter. Implement state only through these two functions.
+
+```c
+```
+
 **Key differences from sound generators and audio FX:**
 
 - `process_midi()` transforms incoming MIDI — can output 0 (swallow), 1 (pass/modify), or multiple messages (e.g., chord generates multiple notes)

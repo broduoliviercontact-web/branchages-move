@@ -110,6 +110,8 @@ Implement:
 - `chain_params` exposure when needed
 - serialized state when needed
 
+> **Critical — no save_state/load_state in the API:** The `midi_fx_api_v1_t` struct does NOT have `save_state` or `load_state` callbacks. The host will never call them. State recall goes entirely through `set_param`/`get_param` via the chain host. Do not implement separate save/load functions and expect the host to call them — nothing will happen.
+
 ### 5. Manage Note Lifecycle Safely
 Always protect against:
 - stuck notes

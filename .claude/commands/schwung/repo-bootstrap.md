@@ -102,9 +102,13 @@ If the old UI still shows after re-entry: Move has cached the script in RAM → 
 
 **Log files on Move:**
 ```bash
-ssh -i ~/.ssh/move_key ableton@move.local "cat /tmp/schwung.log"
-# DSP debug output goes to /tmp/<module>_debug.log
+ssh -i ~/.ssh/move_key ableton@move.local "cat /data/UserData/schwung/schwung.log"
+# DSP debug output — use /data/UserData/tmp/ not /tmp/
+# /tmp is on the root filesystem which is nearly always full on Move
+ssh -i ~/.ssh/move_key ableton@move.local "cat /data/UserData/tmp/<module>_debug.log"
 ```
+
+> **Warning:** Never write debug logs or temp files to `/tmp/` on Move. The root filesystem is nearly always full. Use `/data/UserData/tmp/` instead.
 
 ## Guardrails
 - Do not start coding before identifying at least one reference module.
