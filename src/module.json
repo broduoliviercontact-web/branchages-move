@@ -2,7 +2,7 @@
     "id": "branchage",
     "name": "Branchage",
     "abbrev": "BRNC",
-    "version": "0.3.6",
+    "version": "0.3.7",
     "description": "Grids drum maps with per-lane Branches-style note branching",
     "author": "Mutable Instruments ideas / port for Schwung Move",
     "api_version": 2,
