@@ -179,8 +179,11 @@ If the module is being submitted to the Schwung module catalog, verify the catal
 
 > **Critical:** The Schwung installer reads `"version"`, not `"latest_version"`. Using `"latest_version"` causes silent install failure — the module downloads but is never recognized.
 
+> **Critical:** The Schwung installer looks for a release asset named `<id>-module.tar.gz` (no version number). A versioned-only asset (`<id>-v1.0.0-module.tar.gz`) causes silent failure. Always upload both. The `download_url` in `release.json` must point to the **unversioned** filename. Symptom: "add custom module" works, Schwung installer does not.
+
 The tarball must:
 - be a `.tar.gz`
+- be uploaded as `<id>-module.tar.gz` (unversioned) as a release asset
 - extract into exactly one folder named `<id>/`
 - contain `module.json` at the root of that folder
 - contain all referenced files

@@ -162,7 +162,34 @@ The host always looks for `ui.js`. Naming it anything else (e.g. `module_ui.js`)
 ### 5. GitHub CDN caches assets by filename
 If you delete and recreate a release with the same asset filename, GitHub serves the old cached file for ~60s. Use a versioned filename (`module-v1.0.0-module.tar.gz`) or upload with `--clobber` and wait.
 
-### 6. Move restart required after install
+### 6. Schwung installer expects `<id>-module.tar.gz` — no version in filename
+
+The Schwung installer looks for a release asset named exactly `<id>-module.tar.gz` (without version number). If only a versioned asset exists (`<id>-v1.0.0-module.tar.gz`), the installer silently fails even though `release.json` looks correct.
+
+**Fix:** Upload **both** files in the release workflow:
+
+```yaml
+- name: Create unversioned copy for Schwung installer
+  run: cp dist/${{ steps.module.outputs.tarball }} dist/${{ steps.module.outputs.tarball_unversioned }}
+
+- name: Create GitHub release
+  uses: softprops/action-gh-release@v2
+  with:
+    files: |
+      dist/${{ steps.module.outputs.tarball }}
+      dist/${{ steps.module.outputs.tarball_unversioned }}
+```
+
+Where `tarball_unversioned` = `${ID}-module.tar.gz`.
+
+The `download_url` in `release.json` must point to the **unversioned** filename:
+```
+https://github.com/<org>/<repo>/releases/download/v1.0.0/<id>-module.tar.gz
+```
+
+**Symptom:** "add custom module" works (user provides the full URL manually) but Schwung installer fails silently.
+
+### 7. Move restart required after install
 The Schwung shim scans modules once at boot. A full Move restart is required after installing a new module.
 
 ---
