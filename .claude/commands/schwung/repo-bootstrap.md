@@ -7,15 +7,14 @@ This skill establishes the minimum required reading, repo conventions, and archi
 
 ## Required Reading
 Before changing code, read and align with:
-- `CLAUDE.md`
-- `BUILDING.md`
-- `docs/MODULES.md`
-- `docs/API.md`
+- `.claude/CLAUDE.md`
+- `.claude/BUILDING.md`
+- `.claude/MODULES.md`
+- `.claude/API.md`
 
-Also inspect at least one real module in:
-- `src/modules/midi_fx/...`
-- `src/modules/chain/...`
-- `src/shared/...`
+Also inspect at least one real module — the proven reference implementations are:
+- `Branchage` (full module: native DSP + ui.js + ui_chain.js + packaging)
+- `Grilles` (same structure, simpler engine)
 
 ## Core Assumptions
 Schwung modules are folder-based modules with a `module.json` manifest.
@@ -83,12 +82,37 @@ Describe:
 - state persistence plan
 - test plan
 
+## Deploy and Iterate on Move
+
+For rapid iteration without a full release cycle, deploy directly via SCP:
+
+```bash
+# Deploy a UI file
+scp -i ~/.ssh/move_key src/ui/ui_chain.js ableton@move.local:/data/UserData/schwung/modules/midi_fx/<id>/ui_chain.js
+
+# Verify the file landed correctly (MD5 comparison)
+md5 src/ui/ui_chain.js
+ssh -i ~/.ssh/move_key ableton@move.local "md5sum /data/UserData/schwung/modules/midi_fx/<id>/ui_chain.js"
+```
+
+After SCP: navigate away from the module and back — Schwung re-evaluates JS on entry.
+If the old UI still shows after re-entry: Move has cached the script in RAM → full power cycle required.
+
+**Debug tip:** Temporarily change the title string (e.g. `'MODULE v2'`) before deploying to confirm the new JS loaded.
+
+**Log files on Move:**
+```bash
+ssh -i ~/.ssh/move_key ableton@move.local "cat /tmp/schwung.log"
+# DSP debug output goes to /tmp/<module>_debug.log
+```
+
 ## Guardrails
 - Do not start coding before identifying at least one reference module.
 - Do not assume the module is audio if the goal is clearly MIDI FX.
 - Do not design desktop-style UI patterns that do not fit Move.
 - Prefer consistency with existing Schwung modules over theoretical elegance.
 - Reuse repo helpers when possible instead of re-implementing infrastructure.
+- `ui_chain.js` is the PRIMARY interaction surface for a MIDI FX in a signal chain — design it first.
 
 ## Output Contract
 When this skill is used, output:

@@ -15,7 +15,12 @@ Build a stable native MIDI FX implementation that:
 
 ## Plugin API v2 (Required)
 
-All new modules must implement `move_plugin_init_v2`. The host tries v2 first, falls back to v1 (deprecated singleton).
+All new MIDI FX modules must export `move_midi_fx_init` — this is the symbol the chain loader looks for.
+
+> **Critical:** The chain loader specifically looks for `move_midi_fx_init`. If your binary only exports `move_plugin_init_v2`, the DSP silently fails to load. Always verify the exported symbol:
+> ```bash
+> strings build/aarch64/dsp.so | grep 'move_midi_fx_init\|move_plugin_init'
+> ```
 
 ```c
 typedef struct plugin_api_v2 {
@@ -29,7 +34,8 @@ typedef struct plugin_api_v2 {
     void (*render_block)(void *instance, int16_t *out_interleaved_lr, int frames);
 } plugin_api_v2_t;
 
-plugin_api_v2_t *move_plugin_init_v2(host_api_v1_t *host);
+// Export this exact symbol name:
+plugin_api_v2_t *move_midi_fx_init(host_api_v1_t *host);
 ```
 
 **`on_midi` source values:**

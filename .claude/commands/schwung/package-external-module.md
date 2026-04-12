@@ -137,8 +137,24 @@ tar --no-xattrs -C dist -czf archive.tar.gz MODULE_ID
 
 **Diagnose:** `strings build/aarch64/dsp.so | grep 'move_midi_fx_init\|move_plugin_init'`
 
-### 3. Missing `raw_ui: true` in module.json
-Without this, the host shows "Chain-only module" when selected — it never loads `ui.js`.
+### 3. `raw_ui` vs `ui_hierarchy` — mutually exclusive
+
+**Module WITH `ui.js`:** add `"raw_ui": true`. Do NOT also add `ui_hierarchy` — it conflicts and prevents the custom UI from loading.
+
+**Module WITHOUT `ui.js`:** add `ui_hierarchy` to expose params in the Shadow UI slot editor. Without it, the module loads but shows "No presets" with no editable parameters. Do NOT add `raw_ui`.
+
+```json
+// With ui.js — raw_ui only:
+"raw_ui": true,
+"ui": "ui.js"
+
+// Without ui.js — ui_hierarchy only:
+"ui_hierarchy": {
+  "levels": {
+    "root": { "name": "My Module", "knobs": ["p1", "p2"], "params": ["p1", "p2"] }
+  }
+}
+```
 
 ### 4. UI file must be named `ui.js`
 The host always looks for `ui.js`. Naming it anything else (e.g. `module_ui.js`) causes silent failure. Copy it as `ui.js` in package.sh.

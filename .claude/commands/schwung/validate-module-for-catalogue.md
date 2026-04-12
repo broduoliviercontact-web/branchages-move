@@ -91,11 +91,39 @@ Check `module.json` for:
 - [ ] No unsupported or invented manifest fields
 - [ ] File size under 8KB
 
+### Step 1b: raw_ui / ui_hierarchy Sanity Check
+
+**If `"ui": "ui.js"` is declared:**
+- [ ] `"raw_ui": true` is present at root level
+- [ ] `ui_hierarchy` is NOT present (conflict — prevents custom UI from loading)
+- [ ] `"chain_params"` is used for chain editing (not `ui_hierarchy`)
+
+**If no `"ui"` is declared:**
+- [ ] `"ui_hierarchy"` is present at root level for Shadow UI param display
+- [ ] `"raw_ui"` is NOT present
+- [ ] Without `ui_hierarchy`, module loads but shows "No presets / no parameters"
+
+**Never combine:** `"raw_ui": true` + `"ui_hierarchy"` at root level.
+**Never put** `"ui_hierarchy"` inside `"capabilities"` — wrong location, silently ignored.
+
 ### Step 2: File Integrity Check
 For every file listed in `module.json`:
 - [ ] File exists in the module folder
 - [ ] File is not empty
 - [ ] No broken relative references inside UI JS files (import paths)
+- [ ] `ui.js` is named exactly `ui.js` — the host always looks for this exact name
+- [ ] `ui_chain.js` exports `globalThis.chain_ui = { init, tick, onMidiMessageInternal, ... }`
+- [ ] `ui.js` exports `globalThis.init`, `globalThis.tick`, `globalThis.onMidiMessageInternal`
+
+### Step 2b: DSP Binary Check (if dsp.so present)
+- [ ] DSP exports `move_midi_fx_init` (not `move_plugin_init_v2`):
+  ```bash
+  strings dist/<id>/dsp.so | grep 'move_midi_fx_init\|move_plugin_init'
+  ```
+- [ ] No GNUSparse entries in tarball:
+  ```bash
+  tar -tzf dist/<id>-module.tar.gz | grep -i sparse
+  ```
 
 ### Step 3: Parameter Alignment Check
 For every parameter defined in `module.json` (defaults or ui_hierarchy):

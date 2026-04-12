@@ -69,9 +69,29 @@ Assume the module should behave like existing chainable MIDI FX modules unless t
 Chain will enter the source UI when a patch with this source loads. Back exits to chain view; Menu re-enters source UI.
 
 ### 3. Parameter Model
-Define the `ui_hierarchy` root level with:
-- `params`
-- `knobs`
+
+**Decide first: does this module have a custom `ui.js` or not?**
+
+**With `ui.js`** — use `chain_params` for chain editing, add `raw_ui: true`:
+```json
+"ui": "ui.js",
+"ui_chain": "ui_chain.js",
+"raw_ui": true,
+"chain_params": [
+  { "key": "param1", "name": "Param 1", "type": "float", "min": 0.0, "max": 1.0, "default": 0.5, "step": 0.01 }
+]
+```
+
+**Without `ui.js`** — use `ui_hierarchy` for Shadow UI:
+```json
+"ui_hierarchy": {
+  "levels": {
+    "root": { "name": "Module Name", "knobs": ["param1", "param2"], "params": ["param1", "param2"] }
+  }
+}
+```
+
+Never use both `raw_ui` and `ui_hierarchy` together — they conflict.
 
 Prefer 2 to 8 primary controls.
 Do not overload the first version with deep menu trees unless necessary.
