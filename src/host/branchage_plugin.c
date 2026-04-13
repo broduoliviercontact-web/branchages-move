@@ -23,7 +23,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <stdarg.h>
 
 #define MIDI_NOTE_ON    0x90u
 #define MIDI_NOTE_OFF   0x80u
@@ -56,30 +55,6 @@
 #define VEL_ACCENT  127u
 
 static const host_api_v1_t *g_host = NULL;
-static int g_logged_first_tick = 0;
-
-static void file_logf(const char *fmt, ...)
-{
-    FILE *fp;
-    char buf[256];
-    va_list ap;
-    int written;
-
-    if (!fmt) return;
-
-    fp = fopen("/tmp/branchage_debug.log", "a");
-    if (!fp) return;
-
-    va_start(ap, fmt);
-    written = vsnprintf(buf, sizeof(buf), fmt, ap);
-    va_end(ap);
-    if (written >= 0) {
-        buf[sizeof(buf) - 1] = '\0';
-        fputs(buf, fp);
-        fputc('\n', fp);
-    }
-    fclose(fp);
-}
 
 static const char *kBranchProbKeys[GRIDS_NUM_LANES] = {
     "kick_branch_prob",
@@ -457,16 +432,6 @@ static int do_step(BranchageInstance *bi,
         {
             uint8_t vel = grids_get_accent(&bi->grids, lane) ? VEL_ACCENT : VEL_NORMAL;
             uint8_t note = resolve_lane_note(bi, lane);
-            static int g_logged_first_emit = 0;
-            if (!g_logged_first_emit) {
-                file_logf("branchage:first_emit lane=%d note=%u vel=%u step=%u",
-                          lane,
-                          (unsigned)note,
-                          (unsigned)vel,
-                          (unsigned)bi->grids.step);
-                g_logged_first_emit = 1;
-            }
-
             count = emit_note_message(MIDI_NOTE_ON, note, vel,
                                       out_msgs, out_lens, max_out, count);
             if (count > max_out) return max_out;
@@ -536,6 +501,66 @@ static int write_preview_chunk(BranchageInstance *bi, int lane, int offset,
 }
 
 /* ---------------------------------------------------------------------------
+ * State JSON helpers
+ * ------------------------------------------------------------------------- */
+
+/* Extract a quoted string value for a given key from a JSON object string.
+ * Returns length written (excluding NUL), or -1 on failure.
+ * Example: json_extract_value("{\"foo\":\"bar\"}", "foo", buf, 64) -> "bar" */
+static int json_extract_value(const char *json, const char *key,
+                              char *out, int out_len)
+{
+    char needle[128];
+    const char *p, *start, *end;
+    int len;
+
+    if (!json || !key || !out || out_len <= 0) return -1;
+
+    len = snprintf(needle, sizeof(needle), "\"%s\":\"", key);
+    if (len < 0 || len >= (int)sizeof(needle)) return -1;
+
+    p = strstr(json, needle);
+    if (!p) return -1;
+
+    start = p + len;
+    end = strchr(start, '"');
+    if (!end) return -1;
+
+    len = (int)(end - start);
+    if (len >= out_len) len = out_len - 1;
+    memcpy(out, start, (size_t)len);
+    out[len] = '\0';
+    return len;
+}
+
+/* Apply all known parameters from a JSON state string. */
+static void branchage_restore_state(void *instance, const char *json)
+{
+    char val[128];
+    static const char *keys[] = {
+        "map_x", "map_y",
+        "density_kick", "density_snare", "density_hat",
+        "randomness", "steps", "bpm", "sync",
+        "kick_note", "snare_note", "hat_note",
+        "grid_view",
+        "kick_branch_prob", "snare_branch_prob", "hat_branch_prob",
+        "kick_branch_note", "snare_branch_note", "hat_branch_note",
+        "kick_branch_enabled", "snare_branch_enabled", "hat_branch_enabled",
+        "kick_branch_rand_low", "snare_branch_rand_low", "hat_branch_rand_low",
+        "kick_branch_rand_high", "snare_branch_rand_high", "hat_branch_rand_high",
+        NULL
+    };
+
+    if (!instance || !json) return;
+
+    for (int i = 0; keys[i]; i++) {
+        if (json_extract_value(json, keys[i], val, sizeof(val)) > 0) {
+            branchage_set_param(instance, keys[i], val);
+        }
+    }
+}
+
+/* ---------------------------------------------------------------------------
  * Instance lifecycle
  * ------------------------------------------------------------------------- */
 
@@ -583,10 +608,6 @@ static void *branchage_create_instance(const char *module_dir,
 
     bi->grid_view = DEFAULT_UI_PAGE;
     bi->preview_dirty = 1;
-    file_logf("branchage:create sync=%u running=%u",
-              (unsigned)bi->sync_mode,
-              (unsigned)bi->clock_running);
-
     return bi;
 }
 
@@ -605,7 +626,6 @@ static int branchage_process_midi(void *instance,
     if (!bi || in_len == 0) return 0;
 
     if (in_msg[0] == 0xFAu) {  /* Start */
-        file_logf("branchage:process 0xFA sync=%u", (unsigned)bi->sync_mode);
         grids_engine_reset(&bi->grids);
         reset_branch_engines(bi);
         bi->frames_until_tick = frames_per_step(current_sample_rate(), current_bpm(bi));
@@ -624,14 +644,12 @@ static int branchage_process_midi(void *instance,
         }
     }
     if (in_msg[0] == 0xFBu) {  /* Continue */
-        file_logf("branchage:process 0xFB sync=%u", (unsigned)bi->sync_mode);
         bi->clock_running = 1;
         return flush_all_notes(bi, out_msgs, out_lens, max_out, 0);
     }
     if (in_msg[0] == 0xF8u) {  /* Clock tick */
         int count = 0;
         if (bi->sync_mode != 0 || !bi->clock_running) return 0;
-        if (!bi->clock_message_mode) file_logf("branchage:first 0xF8");
         bi->clock_message_mode = 1;
 
         count = advance_pending_clocks(bi, out_msgs, out_lens, max_out, count);
@@ -648,7 +666,6 @@ static int branchage_process_midi(void *instance,
         return count;
     }
     if (in_msg[0] == 0xFCu) {  /* Stop */
-        file_logf("branchage:process 0xFC");
         bi->clock_running = 0;
         return flush_all_notes(bi, out_msgs, out_lens, max_out, 0);
     }
@@ -664,6 +681,11 @@ static void branchage_set_param(void *instance, const char *key, const char *val
     BranchageInstance *bi = (BranchageInstance *)instance;
 
     if (!bi || !key || !val) return;
+
+    if (strcmp(key, "state") == 0) {
+        branchage_restore_state(instance, val);
+        return;
+    }
 
     if (strcmp(key, "map_x") == 0) {
         grids_set_map_xy(&bi->grids, parse_norm(val), bi->grids.map_y);
@@ -780,6 +802,68 @@ static int branchage_get_param(void *instance, const char *key,
 
     if (!bi || !key || !buf || buf_len <= 0) return -1;
 
+    if (strcmp(key, "state") == 0) {
+        return snprintf(buf, buf_len,
+            "{"
+            "\"map_x\":\"%.4f\","
+            "\"map_y\":\"%.4f\","
+            "\"density_kick\":\"%.4f\","
+            "\"density_snare\":\"%.4f\","
+            "\"density_hat\":\"%.4f\","
+            "\"randomness\":\"%.4f\","
+            "\"steps\":\"%u\","
+            "\"bpm\":\"%u\","
+            "\"sync\":\"%s\","
+            "\"kick_note\":\"%u\","
+            "\"snare_note\":\"%u\","
+            "\"hat_note\":\"%u\","
+            "\"grid_view\":\"%u\","
+            "\"kick_branch_prob\":\"%.4f\","
+            "\"snare_branch_prob\":\"%.4f\","
+            "\"hat_branch_prob\":\"%.4f\","
+            "\"kick_branch_note\":\"%d\","
+            "\"snare_branch_note\":\"%d\","
+            "\"hat_branch_note\":\"%d\","
+            "\"kick_branch_enabled\":\"%u\","
+            "\"snare_branch_enabled\":\"%u\","
+            "\"hat_branch_enabled\":\"%u\","
+            "\"kick_branch_rand_low\":\"%u\","
+            "\"snare_branch_rand_low\":\"%u\","
+            "\"hat_branch_rand_low\":\"%u\","
+            "\"kick_branch_rand_high\":\"%u\","
+            "\"snare_branch_rand_high\":\"%u\","
+            "\"hat_branch_rand_high\":\"%u\""
+            "}",
+            bi->grids.map_x / 255.0f,
+            bi->grids.map_y / 255.0f,
+            bi->grids.density[0] / 255.0f,
+            bi->grids.density[1] / 255.0f,
+            bi->grids.density[2] / 255.0f,
+            bi->grids.randomness / 255.0f,
+            bi->step_length,
+            bi->internal_bpm,
+            bi->sync_mode ? "internal" : "move",
+            bi->note[0],
+            bi->note[1],
+            bi->note[2],
+            bi->grid_view,
+            bi->branch[0].engine.probability,
+            bi->branch[1].engine.probability,
+            bi->branch[2].engine.probability,
+            bi->branch[0].rand_mode ? -1 : (int)bi->branch[0].note,
+            bi->branch[1].rand_mode ? -1 : (int)bi->branch[1].note,
+            bi->branch[2].rand_mode ? -1 : (int)bi->branch[2].note,
+            bi->branch[0].enabled,
+            bi->branch[1].enabled,
+            bi->branch[2].enabled,
+            bi->branch[0].rand_low,
+            bi->branch[1].rand_low,
+            bi->branch[2].rand_low,
+            bi->branch[0].rand_high,
+            bi->branch[1].rand_high,
+            bi->branch[2].rand_high);
+    }
+
     if (strcmp(key, "steps") == 0)
         return snprintf(buf, buf_len, "%u", bi->step_length);
     if (strcmp(key, "sync") == 0)
@@ -881,13 +965,6 @@ static int branchage_plugin_tick(void *instance,
     int count;
 
     if (!bi) return 0;
-    if (!g_logged_first_tick) {
-        file_logf("branchage:first_tick sync=%u frames=%d sr=%d",
-                  (unsigned)bi->sync_mode,
-                  frames,
-                  sample_rate);
-        g_logged_first_tick = 1;
-    }
 
     if (bi->sync_mode == 0 && g_host && g_host->get_clock_status) {
         int status = g_host->get_clock_status();
