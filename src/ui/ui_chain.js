@@ -41,6 +41,15 @@ const KNOB_PARAMS = {
   76: 'randomness',
 };
 
+const KNOB_PARAMS_BRANCH = {
+  71: 'kick_branch_prob',
+  72: 'snare_branch_prob',
+  73: 'hat_branch_prob',
+  74: 'kick_branch_note',
+  75: 'snare_branch_note',
+  76: 'hat_branch_note',
+};
+
 const MAIN_PARAM_LIST = [
   'map_x', 'map_y',
   'density_kick', 'density_snare', 'density_hat',
@@ -352,15 +361,18 @@ function onMidiMessageInternal(data) {
   const type   = status & 0xF0;
 
   if (type === 0xB0) {
-    // Knobs 71-76: direct control of main params (page 1 only)
-    if (s.page === PAGE_MAIN && b1 >= 71 && b1 <= 76 && KNOB_PARAMS[b1]) {
-      const key   = KNOB_PARAMS[b1];
-      const delta = decodeDelta(b2) * 0.01;
-      setParam(key, s.params[key] + delta);
-      s.focused = key;
-      s.editing = true;
-      if (key === 'map_x' || key === 'map_y') s.padDirty = true;
-      return;
+    // Knobs 71-76: direct control of params on page 1 and page 2
+    if (b1 >= 71 && b1 <= 76) {
+      const map = s.page === PAGE_BRANCH ? KNOB_PARAMS_BRANCH : (s.page === PAGE_MAIN ? KNOB_PARAMS : null);
+      if (map && map[b1]) {
+        const key   = map[b1];
+        const delta = decodeDelta(b2) * (isNote(key) || BRANCH_NOTE_KEYS.includes(key) ? 1 : 0.01);
+        setParam(key, s.params[key] + delta);
+        s.focused = key;
+        s.editing = true;
+        if (key === 'map_x' || key === 'map_y') s.padDirty = true;
+        return;
+      }
     }
 
     if (b1 === CC_JOG_WHEEL) {
