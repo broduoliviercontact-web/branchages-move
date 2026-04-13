@@ -67,7 +67,7 @@ static void file_logf(const char *fmt, ...)
 
     if (!fmt) return;
 
-    fp = fopen("/tmp/branchage_debug.log", "a");
+   fp = fopen("/data/UserData/branchage_debug.log", "a");
     if (!fp) return;
 
     va_start(ap, fmt);
